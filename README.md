@@ -227,5 +227,3 @@ Good use cases include:
 - exportable report output
 
 ## License
-
-Add the license you want before publishing publicly. For internal firm use, keep the repository private unless you intentionally want to open source it.

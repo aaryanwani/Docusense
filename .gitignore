@@ -1,0 +1,22 @@
+.DS_Store
+
+# Python
+backend/.venv/
+backend/__pycache__/
+backend/app/__pycache__/
+backend/app/services/__pycache__/
+backend/app/schemas/__pycache__/
+.pytest_cache/
+*.pyc
+
+# Node / Vite
+frontend/node_modules/
+frontend/dist/
+
+# Local environment files
+.env
+.env.*
+
+# Editor / OS noise
+.idea/
+.vscode/

@@ -1,0 +1,293 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* Color Palette - Refined Light Theme */
+  --bg-primary: #F8FAFC;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary: #F1F5F9;
+  
+  --accent-primary: #4F46E5; /* Indigo */
+  --accent-secondary: #059669; /* Emerald */
+  --accent-glow: rgba(79, 70, 229, 0.15);
+  
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-tertiary: #64748B;
+  
+  --border-subtle: rgba(0, 0, 0, 0.05);
+  --border-strong: rgba(0, 0, 0, 0.1);
+  
+  /* Status Colors from before, updated to all be shades of Orange */
+  --status-legal: #C2410C; /* orange-700 */
+  --status-hr: #9A3412; /* orange-800 */
+  --status-compliance: #EA580C; /* orange-600 */
+  --status-office: #DD6B20; /* custom orange */
+  --status-general: #D97706; /* amber-600 */
+  
+  /* Glassmorphism settings for light theme */
+  --glass-bg: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --glass-blur: 20px;
+  
+  /* Shadows */
+  --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+  --shadow-glow: 0 0 20px var(--accent-glow);
+  
+  /* Custom Light Theme Colors */
+  --orange-primary: #F97316;
+  --orange-glow: rgba(249, 115, 22, 0.15);
+  --orange-light-glow: rgba(253, 186, 116, 0.2);
+  
+  /* Animation Timings */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.3s ease;
+  --transition-smooth: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.5;
+  min-height: 100vh;
+  overflow-x: hidden;
+  /* Ambient light background glow */
+  background-image: 
+    radial-gradient(circle at 15% 50%, rgba(79, 70, 229, 0.03), transparent 35%),
+    radial-gradient(circle at 85% 30%, rgba(249, 115, 22, 0.03), transparent 35%);
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Base Glassmorphism Class */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-normal);
+}
+
+.glass-panel:hover {
+  border-color: rgba(0,0,0,0.05);
+  box-shadow: var(--shadow-lg), 0 0 15px rgba(0, 0, 0, 0.02);
+}
+
+/* User Requested Orange Theme Overrides for Specific Panels */
+.glass-panel-orange {
+  background: rgba(255, 255, 255, 0.85); /* Slightly more opaque white */
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid rgba(249, 115, 22, 0.3); /* Orange border */
+  border-top: 4px solid var(--orange-primary); /* Strong orange indicator */
+  border-radius: 16px;
+  box-shadow: 0 10px 25px -5px var(--orange-glow), 0 4px 10px -2px rgba(0,0,0,0.05);
+  transition: all var(--transition-normal);
+}
+
+.glass-panel-orange:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 35px -5px var(--orange-glow), 0 8px 15px -2px rgba(0,0,0,0.05);
+}
+
+.glass-panel-light-orange {
+  background: rgba(255, 247, 237, 0.7); /* orange-50 with opacity */
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid rgba(253, 186, 116, 0.4); /* orange-300 with opacity */
+  border-left: 4px solid #FB923C; /* orange-400 indicator */
+  border-radius: 16px;
+  box-shadow: 0 8px 20px -5px var(--orange-light-glow);
+  transition: all var(--transition-normal);
+}
+
+.glass-panel-light-orange:hover {
+  box-shadow: 0 12px 25px -5px rgba(253, 186, 116, 0.3);
+}
+
+/* Base Styles */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+p {
+  color: var(--text-secondary);
+}
+
+a {
+  color: var(--accent-primary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: #6366F1;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* Utility Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-5px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-fade-in {
+  animation: fadeIn var(--transition-smooth) forwards;
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* Components */
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-primary), #6366F1);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all var(--transition-normal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-glow);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all var(--transition-normal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-primary);
+  border-color: #CBD5E1; /* slate-300 */
+  transform: translateY(-1px);
+}
+
+/* Upload Area specific styles */
+.upload-zone {
+  border: 2px dashed #CBD5E1;
+  border-radius: 16px;
+  padding: 3rem;
+  text-align: center;
+  transition: all var(--transition-smooth);
+  background: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+}
+
+.upload-zone.active {
+  border-color: var(--accent-primary);
+  background: rgba(79, 70, 229, 0.05);
+  box-shadow: var(--shadow-glow);
+}
+
+.upload-zone:hover {
+  border-color: var(--accent-primary);
+  background: rgba(79, 70, 229, 0.03);
+}
+
+/* Tags/Chips */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+/* Distinctive chips with lighter backgrounds for light mode, all orange-toned */
+.chip.legal { background: #FFEDD5; color: var(--status-legal); border-color: #FDBA74; }
+.chip.hr { background: #FEF3C7; color: var(--status-hr); border-color: #FDE68A; }
+.chip.compliance { background: #FFF7ED; color: var(--status-compliance); border-color: #FED7AA; }
+.chip.office { background: #FEF08A; color: var(--status-office); border-color: #FDE047; }
+
+/* Custom Scrollbar for Light Theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Markdown Content Styling */
+.markdown-content h1, 
+.markdown-content h2, 
+.markdown-content h3 {
+  color: var(--text-primary);
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+.markdown-content p {
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+}
+.markdown-content ul, 
+.markdown-content ol {
+  color: var(--text-secondary);
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+.markdown-content li {
+  margin-bottom: 0.5rem;
+}
+.markdown-content strong {
+  color: var(--text-primary);
+}

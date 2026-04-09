@@ -1,7 +1,8 @@
+import json
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from app.services.chunker import chunk_text
-from app.services.text_cleanup import clean_generated_output
+from app.services.text_cleanup import clean_generated_output, StreamingOutputCleaner
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
 MODEL_NAME = "qwen2"
@@ -12,20 +13,47 @@ MAP_OVERLAP = 120
 MAX_MAP_WORKERS = 4
 
 
+def _request_payload(prompt: str, stream: bool) -> dict:
+    return {
+        "model": MODEL_NAME,
+        "prompt": prompt,
+        "stream": stream,
+    }
+
+
 def ask_ollama(prompt: str) -> str:
     try:
         response = requests.post(
             OLLAMA_URL,
-            json={
-                "model": MODEL_NAME,
-                "prompt": prompt,
-                "stream": False
-            },
+            json=_request_payload(prompt, stream=False),
             timeout=REQUEST_TIMEOUT_SECONDS
         )
+        response.raise_for_status()
         return response.json().get("response", "").strip()
     except Exception as e:
         return f"LLM error: {str(e)}"
+
+
+def stream_ollama(prompt: str):
+    with requests.post(
+        OLLAMA_URL,
+        json=_request_payload(prompt, stream=True),
+        timeout=(10, REQUEST_TIMEOUT_SECONDS),
+        stream=True,
+    ) as response:
+        response.raise_for_status()
+
+        for line in response.iter_lines(decode_unicode=True):
+            if not line:
+                continue
+
+            payload = json.loads(line)
+            chunk = payload.get("response", "")
+            if chunk:
+                yield chunk
+
+            if payload.get("done"):
+                break
 
 
 def _choose_chunk_settings(text_length: int) -> tuple[int, int]:
@@ -149,10 +177,8 @@ Extracted Notes:
     """
 
 
-def generate_summary(text: str):
-    # If text is small enough, do a direct summary
-    if len(text) < SMALL_DOCUMENT_THRESHOLD:
-        prompt = f"""
+def _build_direct_prompt(text: str) -> str:
+    return f"""
 You are a senior enterprise document analyst specializing in legal contracts, HR policies, pay notices, compliance documents, office rules, and internal business policies.
 
 Your task is to analyze an enterprise document and produce a final structured output that is accurate, concise, readable, and useful for both new employees and senior leadership.
@@ -208,7 +234,81 @@ Write a short final summary in 3-5 lines for leadership or a new employee who wa
 
 Document:
 {text}
-        """
-        return clean_generated_output(ask_ollama(prompt))
+    """
+
+
+def _stream_prompt(prompt: str):
+    cleaner = StreamingOutputCleaner()
+    streamed_output = []
+
+    for token in stream_ollama(prompt):
+        cleaned = cleaner.push(token)
+        if cleaned:
+            streamed_output.append(cleaned)
+            yield {"type": "summary_delta", "delta": cleaned}
+
+    tail = cleaner.flush()
+    if tail:
+        streamed_output.append(tail)
+        yield {"type": "summary_delta", "delta": tail}
+
+    final_summary = clean_generated_output("".join(streamed_output))
+    yield {"type": "summary_complete", "summary": final_summary}
+
+
+def stream_summary_events(text: str):
+    if len(text) < SMALL_DOCUMENT_THRESHOLD:
+        yield {"type": "status", "message": "Generating live summary"}
+        yield from _stream_prompt(_build_direct_prompt(text))
+        return
+
+    chunk_size, overlap = _choose_chunk_settings(len(text))
+    chunks = chunk_text(text, chunk_size=chunk_size, overlap=overlap)
+
+    if not chunks:
+        yield {"type": "summary_complete", "summary": "No summary generated."}
+        return
+
+    yield {"type": "status", "message": f"Breaking the document into {len(chunks)} sections"}
+
+    chunk_summaries = [None] * len(chunks)
+    completed = 0
+    max_workers = min(MAX_MAP_WORKERS, len(chunks))
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [
+            executor.submit(_map_chunk, item, len(chunks))
+            for item in enumerate(chunks)
+        ]
+
+        for future in as_completed(futures):
+            index, response = future.result()
+            completed += 1
+
+            if not response.startswith("LLM error:"):
+                chunk_summaries[index] = clean_generated_output(response)
+
+            yield {
+                "type": "status",
+                "message": f"Analyzed section {completed} of {len(chunks)}"
+            }
+
+    valid_summaries = [summary for summary in chunk_summaries if summary]
+    if not valid_summaries:
+        fallback_summary = clean_generated_output(
+            ask_ollama("Respond with: Failed to process document chunks.")
+        )
+        yield {"type": "summary_complete", "summary": fallback_summary}
+        return
+
+    yield {"type": "status", "message": "Generating final summary"}
+    combined_notes = "\n\n".join(valid_summaries)
+    yield from _stream_prompt(_build_reduce_prompt(combined_notes))
+
+
+def generate_summary(text: str):
+    # If text is small enough, do a direct summary
+    if len(text) < SMALL_DOCUMENT_THRESHOLD:
+        return clean_generated_output(ask_ollama(_build_direct_prompt(text)))
 
     return _map_reduce_summary(text)

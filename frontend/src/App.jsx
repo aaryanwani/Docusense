@@ -1,10 +1,11 @@
 import React, { useState, useRef } from 'react';
-import axios from 'axios';
 import { 
   UploadCloud, FileText, Activity, Shield, Users, 
   Clock, BrainCircuit, CheckCircle, AlertTriangle, 
-  FileSearch, BarChart2, Hash, ArrowRight
+  FileSearch, Hash
 } from 'lucide-react';
+
+const API_BASE_URL = "http://localhost:8000";
 
 export default function App() {
   const [file, setFile] = useState(null);
@@ -12,6 +13,7 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [dragActive, setDragActive] = useState(false);
+  const [analysisStatus, setAnalysisStatus] = useState(null);
   
   const fileInputRef = useRef(null);
 
@@ -62,22 +64,92 @@ export default function App() {
     setAnalyzing(true);
     setResult(null);
     setError(null);
+    setAnalysisStatus("Uploading document");
     
     const formData = new FormData();
     formData.append("file", fileToProcess);
 
     try {
-      const response = await axios.post("http://localhost:8000/analyze", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data"
-        }
+      const response = await fetch(`${API_BASE_URL}/analyze/stream`, {
+        method: "POST",
+        body: formData,
       });
-      setResult(response.data);
+
+      if (!response.ok || !response.body) {
+        throw new Error("Failed to start streaming analysis.");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let completed = false;
+
+      const handleEvent = (event) => {
+        switch (event.type) {
+          case "status":
+            setAnalysisStatus(event.message);
+            break;
+          case "metadata":
+            setResult(event.data);
+            break;
+          case "summary_delta":
+            setResult((current) => {
+              if (!current) return current;
+              return {
+                ...current,
+                summary: `${current.summary || ""}${event.delta}`,
+              };
+            });
+            break;
+          case "summary_complete":
+            setResult((current) => {
+              if (!current) return current;
+              return {
+                ...current,
+                summary: event.summary,
+              };
+            });
+            break;
+          case "result":
+            completed = true;
+            setResult(event.data);
+            setAnalyzing(false);
+            setAnalysisStatus(null);
+            break;
+          case "error":
+            throw new Error(event.message || "Streaming analysis failed.");
+          default:
+            break;
+        }
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          handleEvent(JSON.parse(line));
+        }
+      }
+
+      const trailingLine = buffer.trim();
+      if (trailingLine) {
+        handleEvent(JSON.parse(trailingLine));
+      }
+
+      if (!completed) {
+        throw new Error("The analysis stream ended before the final result arrived.");
+      }
     } catch (err) {
       console.error(err);
-      setError("Failed to analyze document. Ensure backend and Ollama are running.");
-    } finally {
+      setError(err?.message || "Failed to analyze document. Ensure backend and Ollama are running.");
       setAnalyzing(false);
+      setAnalysisStatus(null);
     }
   };
 
@@ -85,6 +157,7 @@ export default function App() {
     setFile(null);
     setResult(null);
     setError(null);
+    setAnalysisStatus(null);
   };
 
   // Helper to format entity types
@@ -136,7 +209,7 @@ export default function App() {
         </div>
         
         {/* Analyze Another Document Button moved to header for better visibility */}
-        {result && (
+        {result && !analyzing && (
           <button className="btn-primary" onClick={resetAnalysis} style={{ background: 'linear-gradient(135deg, var(--orange-primary), #FDBA74)', color: '#9A3412', boxShadow: 'var(--shadow-sm)', border: 'none' }}>
             Analyze Another Document
           </button>
@@ -203,7 +276,7 @@ export default function App() {
         )}
 
         {/* STATE 2: ANALYZING */}
-        {analyzing && (
+        {analyzing && !result && (
           <div className="glass-panel animate-fade-in" style={{ padding: '4rem 2rem', textAlign: 'center', minHeight: '400px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ position: 'relative', width: '80px', height: '80px', marginBottom: '2rem' }}>
               <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '4px solid var(--border-subtle)' }}></div>
@@ -221,11 +294,21 @@ export default function App() {
         )}
 
         {/* STATE 3: RESULTS DASHBOARD */}
-        {result && !analyzing && (
+        {result && (
           <div className="animate-fade-in" style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 2fr', gap: '2rem', alignItems: 'start' }}>
             
             {/* Left Sidebar - Meta & Stats */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              {analyzing && analysisStatus && (
+                <div className="glass-panel" style={{ padding: '1rem 1.25rem', borderLeft: '4px solid var(--accent-primary)' }}>
+                  <p style={{ margin: 0, fontSize: '0.78rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>
+                    Live Analysis
+                  </p>
+                  <p style={{ margin: '0.4rem 0 0 0', color: 'var(--text-primary)', fontWeight: 600 }}>
+                    {analysisStatus}
+                  </p>
+                </div>
+              )}
               
               <div className="glass-panel" style={{ padding: '1.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
@@ -297,6 +380,11 @@ export default function App() {
                 <h2 style={{ margin: '0 0 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '1.5rem', color: '#C2410C' }}>
                   <BrainCircuit size={24} color="#EA580C" />
                   AI Summary
+                  {analyzing && (
+                    <span style={{ marginLeft: 'auto', fontSize: '0.75rem', background: 'rgba(249, 115, 22, 0.12)', color: '#C2410C', padding: '4px 10px', borderRadius: '999px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                      Streaming
+                    </span>
+                  )}
                 </h2>
                 
                 {result.summary ? (
@@ -307,7 +395,9 @@ export default function App() {
                     </div>
                   </div>
                 ) : (
-                  <p style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>No summary generated by LLM.</p>
+                  <p style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+                    {analyzing ? 'Summary is streaming in...' : 'No summary generated by LLM.'}
+                  </p>
                 )}
               </div>
 

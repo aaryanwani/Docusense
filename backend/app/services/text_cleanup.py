@@ -122,3 +122,55 @@ def clean_generated_output(text: str) -> str:
 
     cleaned = "\n".join(cleaned_lines).strip()
     return re.sub(r"\n{3,}", "\n\n", cleaned)
+
+
+class StreamingOutputCleaner:
+    def __init__(self) -> None:
+        self._buffer = ""
+        self._pending_blank = False
+        self._has_output = False
+
+    def _clean_stream_line(self, line: str) -> str:
+        line = _clean_line(line)
+        if not line:
+            return ""
+
+        line = LEADING_BULLET_RE.sub("", line)
+        line = re.sub(r"^\s*[-–—]+\s*", "", line)
+        return re.sub(r"\s+", " ", line).strip()
+
+    def _emit_line(self, line: str) -> str:
+        if not line:
+            if self._has_output:
+                self._pending_blank = True
+            return ""
+
+        prefix = ""
+        if self._has_output:
+            prefix = "\n\n" if self._pending_blank else "\n"
+
+        self._pending_blank = False
+        self._has_output = True
+        return f"{prefix}{line}"
+
+    def push(self, text: str) -> str:
+        if not text:
+            return ""
+
+        self._buffer += _normalize_whitespace(text)
+        output = []
+
+        while "\n" in self._buffer:
+            raw_line, self._buffer = self._buffer.split("\n", 1)
+            emitted = self._emit_line(self._clean_stream_line(raw_line))
+            if emitted:
+                output.append(emitted)
+
+        return "".join(output)
+
+    def flush(self) -> str:
+        output = ""
+        if self._buffer:
+            output = self._emit_line(self._clean_stream_line(self._buffer))
+            self._buffer = ""
+        return output
